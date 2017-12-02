@@ -9,18 +9,22 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 
 class IndividualDownloader(MyDefaultDownloader):
+    found_ids = []
+
     async def write(self, res_json, path):
         student = res_json['student']
+        self.found_ids.append(student['id'])
         with DBSession() as session:
             try:
                 entry = session.query(UOpenapplyIntegration).filter_by(id=student['id']).one()
             except NoResultFound:
                 entry = UOpenapplyIntegration()
             except MultipleResultsFound:
-                raise "Too many!"
+                raise Exception("Too many!")
             entry.id = student['id']
             entry.ps_student_number = student['student_id']
             entry.oa_name = "{} {}".format(student['first_name'], student['last_name'])
+            entry.status = student['status']
             session.add(entry)
 
 
@@ -67,3 +71,19 @@ class OADownloader(AsyncDownloaderHelper):
             params=dict(since_id=0, count=500, auth_token=oa_api_token), 
             path=PathURLHelper.build_json_entrypoint_path("open_apply_users")
         )
+
+    def complete(self):
+        """ render inactive students in the database """
+        from app.interface import IndividualDownloader
+        from app.db import DBSession
+        from app.model import UOpenapplyIntegration
+
+        with DBSession() as session:
+            present_ids = [int(i.id) for i in session.query(UOpenapplyIntegration).all()]
+
+            for id_to_be_deleted in set(present_ids) - set(IndividualDownloader.found_ids):
+                item = session.query(UOpenapplyIntegration).filter_by(id=id_to_be_deleted).one()
+                item.status = '_'
+                session.add(item)
+
+

@@ -18,3 +18,4 @@ class UOpenapplyIntegration(Base):
     whomodified = Column(String(100))
     whenmodified = Column(DateTime)
     ps_student_number = Column(String(10))
+    status = Column(String(10), server_default="_")

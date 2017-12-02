@@ -208,6 +208,10 @@ class AsyncDownloaderHelper():
         self._loop = None
         self._downloaders = []
 
+    def complete(self):
+        """ hook for when downloads are complete """
+        pass
+
     def add_downloader(self, klass, *args, **kwargs):
         self._downloaders.append( klass(*args, **kwargs) )
 
@@ -237,6 +241,8 @@ class AsyncDownloaderHelper():
         self._loop.slow_callback_duration = 3
 
         main_task = asyncio.ensure_future(self.download_all())
-        return self._loop.run_until_complete( main_task )
+        ret = self._loop.run_until_complete( main_task )
+        self.complete()
+        return ret
 
 
