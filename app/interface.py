@@ -3,13 +3,25 @@ from app.oa_downloader import PathURLHelper, OpenApplyPagingDiscovery, MyDefault
 import gns
 import json
 import aiofiles
+from app.db import DBSession
+from app.model import UOpenapplyIntegration
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+
 
 class IndividualDownloader(MyDefaultDownloader):
     async def write(self, res_json, path):
-        txt_contents = json.dumps(res_json, **self.json_dumps_kwargs);
-        async with aiofiles.open('/tmp/dl/commands.sql', 'a') as f:
-            await f.write(txt_contents + '\n')
-            self.did_write(path)
+        student = res_json['student']
+        with DBSession() as session:
+            try:
+                entry = session.query(UOpenapplyIntegration).filter_by(id=student['id']).one()
+            except NoResultFound:
+                entry = UOpenapplyIntegration()
+            except MultipleResultsFound:
+                raise "Too many!"
+            entry.id = student['id']
+            entry.ps_student_number = student['student_id']
+            entry.oa_name = "{} {}".format(student['first_name'], student['last_name'])
+            session.add(entry)
 
 
 class AllStudentsDownloader(OpenApplyPagingDiscovery):
